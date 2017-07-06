@@ -20,7 +20,6 @@ function printresp(apiclnt, testname, resp)
 end
 
 function run_clnt(fmt, tport)
-    ctx = Context()
     apiclnt = APIInvoker(tport, fmt)
 
     println("testing httpresponse...")
@@ -65,7 +64,6 @@ function run_clnt(fmt, tport)
     resp = apicall(apiclnt, "testArray", Float64[1.0 2.0; 3.0 4.0])
     @test fnresponse(apiclnt.format, resp) == 12
 
-    close(ctx)
     close(tport)
 end
 
