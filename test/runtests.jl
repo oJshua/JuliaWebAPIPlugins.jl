@@ -20,4 +20,3 @@ end
 
 run_test("test_amqp_transport.jl", "--ser")
 run_test("test_amqp_transport.jl", "--json")
-run_test("test_inproc_transport.jl", "")
