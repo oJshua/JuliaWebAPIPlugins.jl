@@ -14,13 +14,17 @@ immutable AMQPTransport <: AbstractTransport
     client::AMQPTransportClient
 
     function AMQPTransport(queue::String, mode::Symbol; virtualhost="/", host="localhost", port=AMQPClient.AMQP_DEFAULT_PORT, auth_params=AMQPClient.DEFAULT_AUTH_PARAMS)
+        Logging.info("opening connection...")
         conn = connection(;virtualhost=virtualhost, host=host, port=port, auth_params=auth_params)
+        Logging.info("opening channel...")
         chan1 = channel(conn, AMQPClient.UNUSED_CHANNEL, true)
+        Logging.info("opening message channel...")
         msgchan = Channel{AMQPClient.Message}(1) # should use unbuffered channels in Julia v0.6
 
         rpc_fn = (rcvd_msg) -> begin
             put!(msgchan, rcvd_msg)
         end
+        Logging.info("initializing as ", mode)
 
         if mode === :client
             # create a reply queue for the client
@@ -37,14 +41,16 @@ immutable AMQPTransport <: AbstractTransport
             @assert success
             # wait till server queue is set up (if queue is not durable)
             while consumer_count == 0
-                Logging.warn("waiting for consumers...")
+                Logging.info("waiting for consumers...")
                 sleep(5)
                 success, message_count, consumer_count = queue_declare(chan1, queue; durable=true)
             end
             new(queue, mode, conn, chan1, consumer_tag, msgchan, client)
         elseif mode === :server
             # create a server queue
+            Logging.info("creating server queue...")
             success, message_count, consumer_count = queue_declare(chan1, queue; durable=true)
+            Logging.info("created server queue...")
             @assert success
 
             # start a consumer task
@@ -66,7 +72,7 @@ function sendrecv(conn::AMQPTransport, msgstr)
     end
     conn.client.correlation_id += 1
 
-    M = AMQPClient.Message(convert(Vector{UInt8}, msgstr), content_type="text/plain", delivery_mode=PERSISTENT, reply_to=conn.client.queue, correlation_id=string(conn.client.correlation_id))
+    M = AMQPClient.Message(convert(Vector{UInt8}, msgstr), content_type="application/octet-stream", delivery_mode=PERSISTENT, reply_to=conn.client.queue, correlation_id=string(conn.client.correlation_id))
     basic_publish(conn.mqchan, M; exchange=default_exchange_name(), routing_key=conn.queue)
     respstr = ""
 
@@ -87,7 +93,7 @@ end
 
 function sendresp(conn::AMQPTransport, msgstr)
     Logging.debug("sending response: ", msgstr)
-    M = AMQPClient.Message(convert(Vector{UInt8}, msgstr), content_type="text/plain", delivery_mode=PERSISTENT, correlation_id=string(conn.client.correlation_id))
+    M = AMQPClient.Message(convert(Vector{UInt8}, msgstr), content_type="application/octet-stream", delivery_mode=PERSISTENT, correlation_id=string(conn.client.correlation_id))
     basic_publish(conn.mqchan, M; exchange=default_exchange_name(), routing_key=conn.client.queue)
     nothing
 end
