@@ -32,10 +32,18 @@ immutable AMQPTransport <: AbstractTransport
             success, consumer_tag = basic_consume(chan1, client_queue, rpc_fn)
             @assert success
             client = AMQPTransportClient(client_queue, 0)
+
+            success, message_count, consumer_count = queue_declare(chan1, queue; durable=true)
+            @assert success
+            ## wait till server queue is set up (if queue is not durable)
+            #while consumer_count == 0
+            #    success, message_count, consumer_count = queue_declare(chan1, queue)
+            #    sleep(5)
+            #end
             new(queue, mode, conn, chan1, consumer_tag, msgchan, client)
         elseif mode === :server
             # create a server queue
-            success, message_count, consumer_count = queue_declare(chan1, queue)
+            success, message_count, consumer_count = queue_declare(chan1, queue; durable=true)
             @assert success
 
             # start a consumer task
