@@ -35,11 +35,12 @@ immutable AMQPTransport <: AbstractTransport
 
             success, message_count, consumer_count = queue_declare(chan1, queue; durable=true)
             @assert success
-            ## wait till server queue is set up (if queue is not durable)
-            #while consumer_count == 0
-            #    success, message_count, consumer_count = queue_declare(chan1, queue)
-            #    sleep(5)
-            #end
+            # wait till server queue is set up (if queue is not durable)
+            while consumer_count == 0
+                Logging.warn("waiting for consumers...")
+                sleep(5)
+                success, message_count, consumer_count = queue_declare(chan1, queue; durable=true)
+            end
             new(queue, mode, conn, chan1, consumer_tag, msgchan, client)
         elseif mode === :server
             # create a server queue
